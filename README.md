@@ -12,7 +12,7 @@ In `greetings_worker.py` we have a simple `greet` function. The function simply 
 
 Turning this function into a worker task is as simple as adding the following code.  Use the `insert` button to add this chunk of code to `greetings_worker.py`.
 
-<insert-text file="./greetings_worker.py" line="1" col="0">
+<insert-text file="./greetings_worker.py" line="0" col="0">
 ```python
 from conductor.client.worker.worker_task import worker_task
 @worker_task(task_definition_name='greet')
@@ -35,16 +35,17 @@ Now, let's write the code that will register the workflow and provision a `TaskH
 
 Lets build the registration function:
 
-<insert-text file="./workflow_runner.py" line="8" col="0">
+<insert-text file="./workflow_runner.py" line="7" col="0">
 ```python
 def register_workflow(workflow_executor: WorkflowExecutor) -> ConductorWorkflow:
     workflow = greetings_workflow(workflow_executor=workflow_executor)
     workflow.register(True)
     return workflow
+
 ```
 </insert-text>
 
-<insert-text file="./workflow_runner.py" line="12" col="0">
+<insert-text file="./workflow_runner.py" line="15" col="0">
 ```python
 def main():
     api_config = Configuration()
@@ -53,6 +54,7 @@ def main():
     task_handler = TaskHandler(configuration=api_config)
     task_handler.start_processes()
     task_handler.join_processes()
+
 ```
 </insert-text>
 
@@ -61,7 +63,7 @@ Finally, we can write the code that will run our task.
 
 Insert the following code into `task_runner.py`.
 
-<insert-text file="./workflow_runner.py" line="5" col="0">
+<insert-text file="./task_runner.py" line="4" col="0">
 ```python
 def main():
     api_config = Configuration()
