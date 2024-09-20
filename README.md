@@ -1,166 +1,89 @@
-# Orkes Conductor Python SDK
-
-Orkes Conductor Python SDK is maintained here: https://github.com/conductor-sdk/conductor-python.
-
-## Install Conductor Python SDK
-
-Before installing Conductor Python SDK, it is a good practice to set up a dedicated virtual environment as follows:
-
-```
-virtualenv conductor
-source conductor/bin/activate
-```
-
-# Get Conductor Python SDK
-The SDK requires Python 3.9+. To install the SDK, use the following command:
-
-```
-python3 -m pip install conductor-python
-```
-
 ## Hello World Application Using Conductor
 
-In this section, we will create a simple "Hello World" application that executes a "greetings" workflow managed by Conductor.
+We will create a simple "Hello World" application that executes a "greetings" workflow managed by Conductor.
 
-### Step 1: Create Workflow
-#### Creating Workflows by Code
+### Step 1: The Worker Task
 
-Create `greetings_workflow.py` with the following:
+A worker represents a function with the `worker_task` decorator.
 
-```
-from conductor.client.workflow.conductor_workflow import ConductorWorkflow
-from conductor.client.workflow.executor.workflow_executor import WorkflowExecutor
-from greetings_worker import greet
+In `greetings_worker.py` we have a simple `greet` function. The function simply echos the string provided to it.
 
-def greetings_workflow(workflow_executor: WorkflowExecutor) -> ConductorWorkflow:
-    name = 'greetings'
-    workflow = ConductorWorkflow(name=name, executor=workflow_executor)
-    workflow.version = 1
-    workflow >> greet(task_ref_name='greet_ref', name=workflow.input('name'))
-    return workflow
-```
+<button data-command="open:greetings_worker.py">Open `greetings_worker.py`</button>
 
-### Step 2: Write Task Worker
-Using Python, a worker represents a function with the worker_task decorator. Create `greetings_worker.py` file as illustrated below:
+Turning this function into a worker task is as simple as adding the following code.  Use the `insert` button to add this chunk of code to `greetings_worker.py`.
 
-note
-A single workflow can have task workers written in different languages and deployed anywhere, making your workflow polyglot and distributed!
-
-```
+<insert-text file="./greetings_worker.py" line="1" col="0">
+```python
 from conductor.client.worker.worker_task import worker_task
-
-
 @worker_task(task_definition_name='greet')
-def greet(name: str) -> str:
-    return f'Hello {name}'
 ```
+</insert-text>
 
-Now, we are ready to write our main application, which will execute our workflow.
+Now, we are ready create our first workflow.
 
-### Step 3: Write Hello World Application
-Let's add `helloworld.py` with a `main` method:
+### Step 2: The Workflow
 
-```
-from conductor.client.automator.task_handler import TaskHandler
-from conductor.client.configuration.configuration import Configuration
-from conductor.client.workflow.conductor_workflow import ConductorWorkflow
-from conductor.client.workflow.executor.workflow_executor import WorkflowExecutor
-from greetings_workflow import greetings_workflow
+We've already defined the workflow in `greetings_workflow.py` take a look:
+
+<button data-command="open:greetings_workflow.py">Open `greetings_workflow.py`</button>
 
 
+### Step 3: Register Workflow and Launch Task Handler
+Now, let's write the code that will register the workflow and provision a `TaskHandler` that will run our task.
+
+<button data-command="open:workflow_runner.py">Open `workflow_runner.py`</button>
+
+Lets build the registration function:
+
+<insert-text file="./workflow_runner.py" line="8" col="0">
+```python
 def register_workflow(workflow_executor: WorkflowExecutor) -> ConductorWorkflow:
     workflow = greetings_workflow(workflow_executor=workflow_executor)
     workflow.register(True)
     return workflow
+```
+</insert-text>
 
-
+<insert-text file="./workflow_runner.py" line="12" col="0">
+```python
 def main():
-    # The app is connected to http://localhost:8080/api by default
     api_config = Configuration()
-
     workflow_executor = WorkflowExecutor(configuration=api_config)
-
-    # Registering the workflow (Required only when the app is executed the first time)
     workflow = register_workflow(workflow_executor)
-
-    # Starting the worker polling mechanism
     task_handler = TaskHandler(configuration=api_config)
     task_handler.start_processes()
-
-    workflow_run = workflow_executor.execute(name=workflow.name, version=workflow.version,
-                                             workflow_input={'name': 'Orkes'})
-
-    print(f'\nworkflow result: {workflow_run.output["result"]}\n')
-    print(f'see the workflow execution here: {api_config.ui_host}/execution/{workflow_run.workflow_id}\n')
-    task_handler.stop_processes()
-
-
-if __name__ == '__main__':
-    main()
+    task_handler.join_processes()
 ```
+</insert-text>
+
+### Step 4: Create the Task Runner
+Finally, we can write the code that will run our task.
+
+Insert the following code into `task_runner.py`.
+
+<insert-text file="./workflow_runner.py" line="5" col="0">
+```python
+def main():
+    api_config = Configuration()
+    workflow_executor = WorkflowExecutor(configuration=api_config)
+    workflow_req = StartWorkflowRequest(name="greetings", version=1, input={"name": "orkes"})
+    workflow_run = workflow_executor.start_workflow(workflow_req)
+    print(f'\nworkflow result: {workflow_run}\n')
+    print(f'see the workflow execution here: {api_config.ui_host}/execution/{workflow_req}\n')
+```
+</insert-text>
 
 
 ### Running Workflows on Conductor
 
-#### Setup Environment Variable
-Set the following environment variable to point the SDK to the Conductor Server API endpoint:
+Now we are ready to execute our workflow!
 
-```
-export CONDUCTOR_SERVER_URL=http://localhost:8080/api
-```
+First we will register the workflow and provision our TaskHandler. Run the following:
 
-#### Execute Hello World Application
-To run the application, type the following command:
+<button data-command="run:python workflow_runner.py">Run `workflow_runner.py`</button>
 
-```
-python helloworld.py
-```
+And now lets run our `greet` task.  Run the following:
 
-Now, the workflow is executed, and its execution status can be viewed from Conductor UI (http://localhost:5000).
+<button data-command="run:python task_runner.py">Run `task_runner.py`</button>
 
-Navigate to the **Executions** tab to view the workflow execution.
-
-Open the Workbench tab and try running the 'greetings' workflow. You will notice that the workflow execution fails. This is because the task_handler.stop_processes() [helloworld.py] function is called and stops all workers included in the app, and therefore, there is no worker up and running to execute the tasks.
-
-Now, let's update the app `helloworld.py`.
-
-```
-from conductor.client.automator.task_handler import TaskHandler
-from conductor.client.configuration.configuration import Configuration
-from conductor.client.workflow.conductor_workflow import ConductorWorkflow
-from conductor.client.workflow.executor.workflow_executor import WorkflowExecutor
-from greetings_workflow import greetings_workflow
-
-
-def register_workflow(workflow_executor: WorkflowExecutor) -> ConductorWorkflow:
-    workflow = greetings_workflow(workflow_executor=workflow_executor)
-    workflow.register(True)
-    return workflow
-
-
-def main():
-    # points to http://localhost:8080/api by default
-    api_config = Configuration()
-
-    workflow_executor = WorkflowExecutor(configuration=api_config)
-
-    # Needs to be done only when registering a workflow one-time
-    # workflow = register_workflow(workflow_executor)
-
-    task_handler = TaskHandler(configuration=api_config)
-    task_handler.start_processes()
-
-    # workflow_run = workflow_executor.execute(name=workflow.name, version=workflow.version,
-                                             workflow_input={'name': 'World'})
-
-    # print(f'\nworkflow result: {workflow_run.output["result"]}\n')
-    # print(f'see the workflow execution here: {api_config.ui_host}/execution/{workflow_run.workflow_id}\n')
-    
-    # task_handler.stop_processes()
-
-
-if __name__ == '__main__':
-    main()
-```
-
-By commenting the lines that execute the workflow and stop the task polling mechanism, we can re-run the app and run the workflow from the Conductor UI. The task is executed successfully.
+Now, the workflow is executed, and its execution status can be viewed in the [Conductor UI](http://localhost:5000).

@@ -1,6 +1,6 @@
+from greetings_worker import greet
 from conductor.client.workflow.conductor_workflow import ConductorWorkflow
 from conductor.client.workflow.executor.workflow_executor import WorkflowExecutor
-from greetings_worker import greet
 
 def greetings_workflow(workflow_executor: WorkflowExecutor) -> ConductorWorkflow:
     name = 'greetings'
